@@ -1,0 +1,78 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # 1. Build Job: Se encarga de construir el código Java
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Save JAR artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: devops-microservice
+          path: target/demodevops-0.0.1-SNAPSHOT.jar  # Almacena el JAR como un artefacto
+
+  # 2. Test Job: Depende del job 'build' y se encarga de ejecutar las pruebas
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build  # El job de pruebas depende de que el job de construcción sea exitoso
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+
+      - name: Run Unit Tests with Maven
+        run: mvn test  # Ejecuta las pruebas unitarias
+
+  # 3. Dockerize Job: Construye la imagen Docker y la sube a Docker Hub. Depende de que build y test sean exitosos.
+  dockerize:
+    name: Dockerize
+    runs-on: ubuntu-latest
+    needs: [build, test] 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: devops-microservice 
+          path: target/
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build Docker Image
+        run: docker build -t ${{ vars.DOCKER_IMAGE }}:latest .
+
+      - name: Push Docker Image
+        run: docker push ${{ vars.DOCKER_IMAGE }}:latest

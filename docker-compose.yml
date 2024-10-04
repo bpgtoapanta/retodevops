@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  devops-service:
+    image: "${IMAGE_NAME}"  # Usar la imagen de Docker Hub
+    ports:
+      - "8080"  # Puerto para el balanceador
+    deploy:
+      replicas: 2  # Número de réplicas del microservicio
+    networks:
+      - devops-network
+
+  load-balancer:
+    image: nginx:alpine
+    ports:
+      - "80:80"  # Puerto expuesto para el balanceo de carga
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf  # Configuración de Nginx
+    networks:
+      - devops-network
+
+networks:
+  devops-network:
+    driver: bridge
+
